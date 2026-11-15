@@ -4,17 +4,17 @@ import {
   Plus, Search, CheckCircle2, AlertCircle,
   Lock, Unlock, Download, Upload, Trash2, Edit3,
   ChevronRight, ChevronLeft, RotateCcw,
-  Award, Coffee, ShieldCheck, Moon, Sun,
+  Award, Coffee, Moon, Sun,
   Sparkles, PartyPopper, Package, DollarSign, X, Check, ClipboardList, Copy
 } from 'lucide-react';
 import {
-  calculateSessionAllocation, cleanNumericInput,
+  cleanNumericInput,
   formatVND, toNum, todayLocal, uid
 } from './lib/allocation.js';
 import { computeClubAnalytics } from './lib/analytics.js';
-import { starterData, demoData, SEED_EVENT_ID } from './data/initialData.js';
+import { starterData } from './data/initialData.js';
 import {
-  normalizeData, migrateData, createSaver, requestPersistence, getStorageInfo,
+  migrateData, createSaver, requestPersistence, getStorageInfo,
   loadDarkMode, saveDarkMode, SCHEMA_VERSION
 } from './lib/storage.js';
 
@@ -77,7 +77,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
   const [editingMemberInSession, setEditingMemberInSession] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [modalType, setModalType] = useState(null);
-  const [qaResults, setQaResults] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [memberFilter, setMemberFilter] = useState('ALL');
 
@@ -288,148 +287,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
     () => [...sessions].sort((a, b) => String(b.date).localeCompare(String(a.date))),
     [sessions]
   );
-
-  // ==========================================
-  // AUTOMATED 15-SCENARIO QA TEST ENGINE
-  // ==========================================
-  const runAll15QATests = () => {
-    const results = [];
-    const safe = (fn, fallback = false) => { try { return fn(); } catch { return fallback; } };
-
-    const mock20Participants = Array.from({ length: 20 }, (_, i) => ({
-      memberId: `TM_${i + 1}`,
-      hours: i % 3 === 0 ? 3 : i % 3 === 1 ? 2 : 1,
-      personalShuttles: i === 4 ? 0 : (i % 5) + 1,
-      drinkWater: i !== 5,
-      waterQty: 1,
-      customAdjustment: 0
-    }));
-
-    const testSession = {
-      courtCount: 3, durationHours: 3, courtPricePerHour: 50000, customCourtTotal: null,
-      courtAllocationMethod: 'BY_HOURS', shuttleUnitPrice: 10000, sharedShuttles: 4, damagedShuttles: 1,
-      sharedShuttleMethod: 'BY_HOURS', enablePersonalShuttles: true, waterTotalCost: 95000,
-      waterAllocationMethod: 'EQUAL_DRINKERS',
-      otherExpenses: [{ id: '1', name: 'Gửi xe', amount: 50000, method: 'EQUAL' }],
-      participants: mock20Participants
-    };
-
-    const alloc = calculateSessionAllocation(testSession);
-    const sumMembers = alloc.memberBreakdowns.reduce((a, b) => a + b.totalFee, 0);
-
-    results.push({
-      id: 1, name: 'TC01: 20 người đánh, 3 sân, 3 giờ (Tổng thu == Tổng chi)',
-      passed: sumMembers === alloc.grandTotalExpense && alloc.courtCost === 450000,
-      detail: `Tổng chi: ${formatVND(alloc.grandTotalExpense)} | Tổng phân bổ 20 người: ${formatVND(sumMembers)}`
-    });
-
-    const p3h = alloc.memberBreakdowns.find((b) => b.hours === 3);
-    const p1h = alloc.memberBreakdowns.find((b) => b.hours === 1);
-    results.push({
-      id: 2, name: 'TC02: Phân bổ tiền sân theo giờ đánh (1h, 2h, 3h)',
-      passed: safe(() => p3h.courtFee > p1h.courtFee && Math.abs(p3h.courtFee - p1h.courtFee * 3) <= 5),
-      detail: `Người 3h đóng tiền sân ${formatVND(p3h?.courtFee)} vs Người 1h đóng ${formatVND(p1h?.courtFee)}`
-    });
-
-    results.push({
-      id: 3, name: 'TC03: Mỗi người sử dụng số lượng cầu khác nhau',
-      passed: alloc.memberBreakdowns[0].personalShuttleFee !== alloc.memberBreakdowns[1].personalShuttleFee,
-      detail: 'Cầu cá nhân tính đúng đơn giá 10.000đ/quả theo thực tế sử dụng'
-    });
-
-    results.push({
-      id: 4, name: 'TC04: Phân bổ cầu dùng chung & cầu hỏng (5 quả = 50.000đ)',
-      passed: alloc.sharedAndDamagedShuttles === 5 && alloc.memberBreakdowns.every((b) => b.sharedShuttleFee > 0),
-      detail: '5 quả chung/hỏng đã được phân bổ tự động theo tỷ lệ giờ tham gia'
-    });
-
-    const zeroShuttleMember = alloc.memberBreakdowns[4];
-    results.push({
-      id: 5, name: 'TC05: Thành viên sử dụng 0 quả cầu cá nhân',
-      passed: zeroShuttleMember.personalShuttleFee === 0 && zeroShuttleMember.sharedShuttleFee > 0,
-      detail: `Tiền cầu cá nhân = 0đ, chỉ chịu phần cầu chung ${formatVND(zeroShuttleMember.sharedShuttleFee)}`
-    });
-
-    const noWaterMember = alloc.memberBreakdowns[5];
-    results.push({
-      id: 6, name: 'TC06: Thành viên tham gia nhưng không uống nước',
-      passed: noWaterMember.waterFee === 0 && alloc.memberBreakdowns[0].waterFee === 5000,
-      detail: 'Người không uống = 0đ, 19 người còn lại mỗi người đóng đúng 5.000đ (Tổng 95.000đ)'
-    });
-
-    // TC07-14 kiểm tra trên dữ liệu thực tế của CLB (phụ thuộc dữ liệu mẫu)
-    // TC07-TC14 chạy trên bộ dữ liệu DEMO nội bộ -> kết quả ổn định, không phụ thuộc dữ liệu thật của CLB
-    const demo = demoData();
-    const demoAnalytics = computeClubAnalytics(demo);
-    const m07Ledger = demoAnalytics.memberLedgers.M07;
-    const m03Ledger = demoAnalytics.memberLedgers.M03;
-    const m01Ledger = demoAnalytics.memberLedgers.M01;
-
-    results.push({
-      id: 7, name: 'TC07: Thành viên đóng tiền trước (Prepayment)',
-      passed: Boolean(m01Ledger && m01Ledger.totalPaid >= 500000),
-      detail: m01Ledger ? `Thành viên M01 đã nạp quỹ ${formatVND(m01Ledger.totalPaid)}, tự động khấu trừ vào buổi đánh` : 'Không tìm thấy M01 trong dữ liệu'
-    });
-
-    results.push({
-      id: 8, name: 'TC08: Thành viên đóng thiếu (Ghi nhận công nợ)',
-      passed: Boolean(m03Ledger && m03Ledger.debtAmount > 0),
-      detail: m03Ledger ? `M03 phát sinh ${formatVND(m03Ledger.totalIncurred)}, đã đóng ${formatVND(m03Ledger.totalPaid)} -> Còn nợ ${formatVND(m03Ledger.debtAmount)}` : 'Không tìm thấy M03'
-    });
-
-    results.push({
-      id: 9, name: 'TC09: Thành viên đóng thừa (Lưu số dư sang kỳ sau)',
-      passed: Boolean(m07Ledger && m07Ledger.creditAmount > 0),
-      detail: m07Ledger ? `M07 còn dư ${formatVND(m07Ledger.creditAmount)} trong sổ cái cá nhân` : 'Không tìm thấy M07'
-    });
-
-    const m13Ledger = demoAnalytics.memberLedgers.M13;
-    results.push({
-      id: 10, name: 'TC10: Thành viên nghỉ đánh nhiều tháng (Inactive)',
-      passed: Boolean(m13Ledger && m13Ledger.status === 'Inactive' && m13Ledger.totalIncurred === 0),
-      detail: 'Trạng thái Inactive không bị chia chi phí trong các buổi đánh mới'
-    });
-
-    const m20Ledger = demoAnalytics.memberLedgers.M20;
-    results.push({
-      id: 11, name: 'TC11: Lưu trữ (Archive) thành viên có lịch sử giao dịch',
-      passed: Boolean(m20Ledger && m20Ledger.status === 'Archived' && m20Ledger.sessionsCount > 0),
-      detail: m20Ledger ? `M20 (${m20Ledger.fullName} - ${m20Ledger.status}) vẫn bảo toàn ${m20Ledger.sessionsCount} buổi đánh và ${formatVND(m20Ledger.totalPaid)} thanh toán` : 'Không tìm thấy M20'
-    });
-
-    const closedSession = demo.sessions.find((s) => s.status === 'Closed');
-    results.push({
-      id: 12, name: 'TC12: Bảo vệ buổi đánh đã khóa sổ (Closed Session Lock)',
-      passed: Boolean(closedSession),
-      detail: closedSession ? `Buổi ${closedSession.id} đang khóa sổ, chặn chỉnh sửa nếu không mở khóa và ghi Audit Log` : 'Chưa có buổi nào khóa sổ'
-    });
-
-    // Tìm đúng sự kiện mẫu theo ID (events[0] sẽ sai ngay khi tạo sự kiện mới)
-    const ev = demo.events.find((e) => e.id === SEED_EVENT_ID);
-    const evCalc = ev ? demoAnalytics.eventCalculations[ev.id] : null;
-    results.push({
-      id: 13, name: 'TC13: Tổ chức tiệc đặc biệt cho một nhóm thành viên & Quỹ tài trợ',
-      passed: Boolean(evCalc && evCalc.netToSplit === 1000000 && Object.keys(evCalc.shares).length === 5),
-      detail: 'Tổng tiệc 1.200.000đ - Quỹ tài trợ 200.000đ = 1.000.000đ chia đúng cho 5 người (200.000đ/người)'
-    });
-
-    results.push({
-      id: 14, name: 'TC14: Một thành viên thanh toán gộp nhiều buổi cùng lúc',
-      passed: Boolean(m01Ledger && m01Ledger.sessionsCount >= 2 && m01Ledger.balance >= 0),
-      detail: `Sổ cái tự động bù trừ 1 lần thanh toán cho ${m01Ledger?.sessionsCount ?? 0} buổi đánh và sự kiện`
-    });
-
-    const backupPayload = JSON.stringify({ members, sessions, events, payments, inventoryPurchases, ledgerAdjustments });
-    const parsedBackup = normalizeData(JSON.parse(backupPayload));
-    results.push({
-      id: 15, name: 'TC15: Sao lưu và Khôi phục (Backup & Restore) toàn bộ dữ liệu',
-      passed: Boolean(parsedBackup && parsedBackup.members.length === members.length && parsedBackup.sessions.length === sessions.length && parsedBackup.payments.length === payments.length),
-      detail: `Serialize thành công ${new Blob([backupPayload]).size.toLocaleString('vi-VN')} bytes dữ liệu JSON không mất mát`
-    });
-
-    setQaResults(results);
-    setModalType('QA_SUITE');
-  };
 
   // ==========================================
   // EXPORT CSV & BACKUP HANDLERS
@@ -741,12 +598,11 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
 
         <div>
           <h3 className="mb-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Thao tác nhanh</h3>
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             {[
               { label: 'Smart Tạo buổi', icon: Sparkles, cls: 'bg-[#4772FA]/10 text-[#4772FA]', onClick: handleCreateSmartSession },
               { label: 'Thu tiền / Quỹ', icon: DollarSign, cls: 'bg-emerald-500/10 text-emerald-600', onClick: () => openPaymentModal() },
-              { label: 'Thêm TV', icon: Users, cls: 'bg-amber-500/10 text-amber-600', onClick: () => setModalType('NEW_MEMBER') },
-              { label: '15 Test QA', icon: ShieldCheck, cls: 'bg-purple-500/10 text-purple-600', onClick: runAll15QATests }
+              { label: 'Thêm TV', icon: Users, cls: 'bg-amber-500/10 text-amber-600', onClick: () => setModalType('NEW_MEMBER') }
             ].map(({ label, icon: Icon, cls, onClick }) => (
               <button
                 key={label}
@@ -2085,7 +1941,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
   const renderReportsTab = () => {
     const ledgers = Object.values(clubAnalytics.memberLedgers);
     const sortedByHours = [...ledgers].filter((m) => m.totalHours > 0).sort((a, b) => b.totalHours - a.totalHours).slice(0, 5);
-    const sortedByShuttles = [...ledgers].filter((m) => m.totalShuttles > 0).sort((a, b) => b.totalShuttles - a.totalShuttles).slice(0, 5);
 
     const categories = [
       { label: 'Tiền thuê sân', amount: clubAnalytics.totalCourtSpent, color: 'bg-[#4772FA]' },
@@ -2146,20 +2001,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
             </div>
           </div>
 
-          <div className={`${card} p-4`}>
-            <h3 className="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-purple-500" /> Top Sử Dụng Cầu Nhiều Nhất
-            </h3>
-            <div className="space-y-2.5">
-              {sortedByShuttles.length === 0 && <p className="text-xs text-slate-400">Chưa có dữ liệu.</p>}
-              {sortedByShuttles.map((m, i) => (
-                <div key={m.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold truncate">{i + 1}. {m.fullName}</span>
-                  <span className="font-bold text-amber-600 shrink-0">{m.totalShuttles} quả</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -2175,7 +2016,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
     NEW_EVENT: 'Tạo Sự Kiện / Liên Hoan Nhóm',
     NEW_INVENTORY: 'Nhập Kho Cầu Lông Mới',
     BACKUP: 'Sao Lưu & Khôi Phục Dữ Liệu',
-    QA_SUITE: 'Báo Cáo 15 Kịch Bản Kiểm Thử QA'
   };
 
   const eventNet = Math.max(0, toNum(newEventForm.totalCost) - toNum(newEventForm.clubSponsoredAmount));
@@ -2194,9 +2034,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={runAll15QATests} className="rounded-xl bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                QA Check
-              </button>
               <button
                 onClick={() => setDarkMode((d) => !d)}
                 className="rounded-xl bg-slate-100 dark:bg-slate-800 p-2 text-slate-600 dark:text-slate-300"
@@ -2593,32 +2430,6 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
                 </div>
               )}
 
-              {modalType === 'QA_SUITE' && qaResults && (
-                <div className="space-y-2.5 text-xs">
-                  {(() => {
-                    const passed = qaResults.filter((r) => r.passed).length;
-                    const allPass = passed === qaResults.length;
-                    return (
-                      <div className={`rounded-2xl p-3 font-bold flex items-center justify-between ${allPass ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-500'}`}>
-                        <span>Kết quả chạy kiểm thử tự động:</span>
-                        <span>{passed} / {qaResults.length} PASSED</span>
-                      </div>
-                    );
-                  })()}
-                  <p className="text-[11px] text-slate-400">TC01–TC14 kiểm tra bộ tính tiền trên dữ liệu demo nội bộ (không đụng tới dữ liệu thật). TC15 kiểm tra sao lưu dữ liệu thật của bạn.</p>
-                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                    {qaResults.map((r) => (
-                      <div key={r.id} className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/60 dark:border-slate-700">
-                        <div className="flex items-center justify-between gap-2 font-bold">
-                          <span>{r.name}</span>
-                          <span className={r.passed ? 'text-emerald-600' : 'text-rose-500'}>{r.passed ? 'PASS' : 'FAIL'}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-1">{r.detail}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
