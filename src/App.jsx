@@ -140,6 +140,8 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
   useEffect(() => {
     const onUpdate = () => setUpdateReady(true);
     window.addEventListener('bcm-sw-update', onUpdate);
+    // Sự kiện có thể đã phát giữa lần render đầu và lúc gắn listener -> kiểm tra lại
+    if (window.__bcmWaitingSW) setUpdateReady(true);
     return () => window.removeEventListener('bcm-sw-update', onUpdate);
   }, []);
   const applyUpdate = async () => {

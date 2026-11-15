@@ -13,14 +13,18 @@ function registerServiceWorker() {
         window.__bcmWaitingSW = worker;
         window.dispatchEvent(new Event('bcm-sw-update'));
       };
-      if (reg.waiting && navigator.serviceWorker.controller) notify(reg.waiting);
-      reg.addEventListener('updatefound', () => {
-        const worker = reg.installing;
-        worker?.addEventListener('statechange', () => {
-          // Có controller cũ = đây là bản cập nhật (không phải lần cài đầu tiên)
+      // Có controller cũ = đây là bản cập nhật (không phải lần cài đầu tiên)
+      const track = (worker) => {
+        if (!worker) return;
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) { notify(worker); return; }
+        worker.addEventListener('statechange', () => {
           if (worker.state === 'installed' && navigator.serviceWorker.controller) notify(worker);
         });
-      });
+      };
+      if (reg.waiting && navigator.serviceWorker.controller) notify(reg.waiting);
+      // Trình duyệt thường đã bắt đầu tải bản mới ngay khi mở app, trước cả khi đoạn code này chạy
+      track(reg.installing);
+      reg.addEventListener('updatefound', () => track(reg.installing));
       // Mỗi lần mở lại app từ nền: kiểm tra bản mới (khi có mạng)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') reg.update().catch(() => {});
