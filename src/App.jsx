@@ -708,10 +708,27 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
               <span className="font-bold text-sm text-emerald-300">{clubAnalytics.totalCashIn > 0 ? "+" : ""}{formatVND(clubAnalytics.totalCashIn)}</span>
             </div>
             <div>
-              <span className="text-blue-100 block">Tổng thực chi (Sân/Cầu/Tiệc)</span>
+              <span className="text-blue-100 block">Tổng thực chi (Sân/Cầu/Nước/Tiệc)</span>
               <span className="font-bold text-sm text-amber-200">{clubAnalytics.totalActualCashOut > 0 ? "-" : ""}{formatVND(clubAnalytics.totalActualCashOut)}</span>
             </div>
           </div>
+
+          {/* Chi tiết thực chi – cộng 4 dòng = Tổng thực chi, để đối chiếu từng khoản */}
+          {clubAnalytics.totalActualCashOut > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-blue-100">
+              {[
+                ['Sân', clubAnalytics.totalCourtSpent],
+                ['Cầu', clubAnalytics.totalShuttleSpent],
+                ['Nước & phụ phí', clubAnalytics.totalWaterSpent + clubAnalytics.totalOtherSessionSpent],
+                ['Tiệc & sự kiện', clubAnalytics.totalEventActualSpent]
+              ].map(([label, amount]) => (
+                <div key={label} className="flex justify-between gap-2">
+                  <span>{label}</span>
+                  <span className="font-semibold text-white">{formatVND(amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-black/20 px-3.5 py-2 text-xs">
             <span className="flex items-center gap-1.5">
@@ -751,14 +768,25 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
               <span>Tồn kho cầu</span>
               <Package className="h-4 w-4 text-[#4772FA]" />
             </div>
-            <div className={`mt-1.5 text-xl font-bold ${clubAnalytics.remainingShuttlesInStock < 0 ? 'text-rose-500' : ''}`}>
-              {clubAnalytics.remainingShuttlesInStock} <span className="text-xs font-normal text-slate-400">quả</span>
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">
-              Đã mua: {clubAnalytics.totalShuttlesBought} • Đã dùng: {clubAnalytics.totalShuttlesConsumed}
-            </div>
-            {clubAnalytics.remainingShuttlesInStock < 0 && (
-              <div className="mt-1 text-[10px] font-semibold text-rose-500">Kho âm – cần nhập thêm cầu!</div>
+            {clubAnalytics.totalShuttlesBought === 0 ? (
+              <>
+                <div className="mt-1.5 text-xl font-bold">
+                  {clubAnalytics.totalShuttlesConsumed} <span className="text-xs font-normal text-slate-400">quả đã dùng</span>
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">Chưa nhập kho – tiền cầu tính chi theo từng buổi</div>
+              </>
+            ) : (
+              <>
+                <div className={`mt-1.5 text-xl font-bold ${clubAnalytics.remainingShuttlesInStock < 0 ? 'text-rose-500' : ''}`}>
+                  {clubAnalytics.remainingShuttlesInStock} <span className="text-xs font-normal text-slate-400">quả</span>
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Đã mua: {clubAnalytics.totalShuttlesBought} • Đã dùng: {clubAnalytics.totalShuttlesConsumed}
+                </div>
+                {clubAnalytics.remainingShuttlesInStock < 0 && (
+                  <div className="mt-1 text-[10px] font-semibold text-rose-500">Dùng vượt kho – phần thiếu đã tính chi theo giá từng buổi</div>
+                )}
+              </>
             )}
           </div>
 
@@ -2061,7 +2089,7 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
 
     const categories = [
       { label: 'Tiền thuê sân', amount: clubAnalytics.totalCourtSpent, color: 'bg-[#4772FA]' },
-      { label: 'Tiền mua cầu lông', amount: clubAnalytics.totalInventorySpent, color: 'bg-amber-500' },
+      { label: 'Tiền cầu lông', amount: clubAnalytics.totalShuttleSpent, color: 'bg-amber-500' },
       { label: 'Tiệc & Sự kiện đặc biệt', amount: clubAnalytics.totalEventActualSpent, color: 'bg-purple-500' },
       { label: 'Nước uống & Phụ phí', amount: clubAnalytics.totalWaterSpent + clubAnalytics.totalOtherSessionSpent, color: 'bg-emerald-500' }
     ];

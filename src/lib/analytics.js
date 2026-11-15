@@ -116,9 +116,26 @@ export function computeClubAnalytics({ members = [], sessions = [], events = [],
   const totalShuttlesBought = inventoryPurchases.reduce((acc, i) => acc + toNum(i.quantity), 0);
   const remainingShuttlesInStock = fmtNum(totalShuttlesBought - totalShuttlesConsumed, 1);
 
+  // Tiền cầu thực chi = tiền mua cầu nhập kho + tiền cầu mua thêm tại sân (phần dùng vượt quá số cầu trong kho).
+  // - Không dùng kho: mọi quả cầu của buổi đều tính chi theo giá của buổi đó.
+  // - Có nhập kho: cầu lấy từ kho đã tính chi lúc mua -> không tính trùng.
+  let stockLeft = totalShuttlesBought;
+  let totalShuttleBoughtAtSessions = 0;
+  [...sessions]
+    .filter((s) => s.status !== 'Draft')
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .forEach((s) => {
+      const used = sessionCalculations[s.id].totalShuttlesUsed;
+      const fromStock = Math.min(Math.max(stockLeft, 0), used);
+      stockLeft -= fromStock;
+      totalShuttleBoughtAtSessions += (used - fromStock) * toNum(s.shuttleUnitPrice);
+    });
+  totalShuttleBoughtAtSessions = Math.round(totalShuttleBoughtAtSessions);
+  const totalShuttleSpent = totalInventorySpent + totalShuttleBoughtAtSessions;
+
   const totalEventActualSpent = events.reduce((acc, e) => acc + (e.paidFromClubCash ? toNum(e.totalCost) : 0), 0);
 
-  const totalActualCashOut = totalCourtSpent + totalWaterSpent + totalOtherSessionSpent + totalInventorySpent + totalEventActualSpent;
+  const totalActualCashOut = totalCourtSpent + totalWaterSpent + totalOtherSessionSpent + totalShuttleSpent + totalEventActualSpent;
   const actualFundBalance = totalCashIn - totalActualCashOut;
 
   return {
@@ -126,6 +143,7 @@ export function computeClubAnalytics({ members = [], sessions = [], events = [],
     totalCashIn, cashInByBank, cashInByHand, totalActualCashOut, actualFundBalance,
     totalReceivable, totalPrepaidCredit, debtorsCount,
     totalCourtSpent, totalWaterSpent, totalOtherSessionSpent, totalInventorySpent, totalEventActualSpent,
+    totalShuttleSpent, totalShuttleBoughtAtSessions,
     totalShuttlesBought, totalShuttlesConsumed, remainingShuttlesInStock
   };
 }

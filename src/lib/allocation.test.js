@@ -162,3 +162,44 @@ describe('computeClubAnalytics', async () => {
     expect(a.totalReceivable).toBe(0);
   });
 });
+
+describe('Tổng thực chi có tính tiền cầu', async () => {
+  const { computeClubAnalytics } = await import('./analytics.js');
+  const sess = (id, date, shuttles) => ({
+    id, date, status: 'Confirmed', courtCount: 1, durationHours: 1, courtPricePerHour: 100000,
+    shuttleUnitPrice: 24000, sharedShuttles: shuttles, damagedShuttles: 0, waterTotalCost: 50000,
+    waterAllocationMethod: 'EQUAL_ALL', participants: [{ memberId: 'A', hours: 1, drinkWater: true }]
+  });
+  const members = [{ id: 'A', fullName: 'A', status: 'Active' }];
+
+  it('không nhập kho: tiền cầu từng buổi được tính vào thực chi', () => {
+    const a = computeClubAnalytics({ members, sessions: [sess('s1', '2026-11-01', 10)] });
+    expect(a.totalShuttleSpent).toBe(240000);
+    expect(a.totalActualCashOut).toBe(100000 + 240000 + 50000); // sân + cầu + nước
+  });
+
+  it('cầu lấy từ kho đã mua: không tính trùng', () => {
+    const a = computeClubAnalytics({
+      members,
+      sessions: [sess('s1', '2026-11-01', 10)],
+      inventoryPurchases: [{ id: 'i1', quantity: 120, unitPrice: 24000, totalCost: 2880000 }]
+    });
+    expect(a.totalShuttleSpent).toBe(2880000);
+    expect(a.totalShuttleBoughtAtSessions).toBe(0);
+  });
+
+  it('dùng vượt kho: phần thiếu tính theo giá của buổi', () => {
+    const a = computeClubAnalytics({
+      members,
+      sessions: [sess('s1', '2026-11-01', 8), sess('s2', '2026-11-02', 8)],
+      inventoryPurchases: [{ id: 'i1', quantity: 12, unitPrice: 20000, totalCost: 240000 }]
+    });
+    expect(a.totalShuttleBoughtAtSessions).toBe(4 * 24000);
+    expect(a.totalShuttleSpent).toBe(240000 + 96000);
+  });
+
+  it('buổi Nháp không tính chi', () => {
+    const a = computeClubAnalytics({ members, sessions: [{ ...sess('s1', '2026-11-01', 10), status: 'Draft' }] });
+    expect(a.totalActualCashOut).toBe(0);
+  });
+});
