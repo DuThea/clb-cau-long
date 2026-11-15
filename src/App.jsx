@@ -703,11 +703,11 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
           <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/15 pt-4 text-xs">
             <div>
               <span className="text-blue-100 block">Tổng thực thu (Đã đóng)</span>
-              <span className="font-bold text-sm text-emerald-300">+{formatVND(clubAnalytics.totalCashIn)}</span>
+              <span className="font-bold text-sm text-emerald-300">{clubAnalytics.totalCashIn > 0 ? "+" : ""}{formatVND(clubAnalytics.totalCashIn)}</span>
             </div>
             <div>
               <span className="text-blue-100 block">Tổng thực chi (Sân/Cầu/Tiệc)</span>
-              <span className="font-bold text-sm text-amber-200">-{formatVND(clubAnalytics.totalActualCashOut)}</span>
+              <span className="font-bold text-sm text-amber-200">{clubAnalytics.totalActualCashOut > 0 ? "-" : ""}{formatVND(clubAnalytics.totalActualCashOut)}</span>
             </div>
           </div>
 
