@@ -261,7 +261,7 @@ export default function BadmintonClubManagerApp({ boot = DEFAULT_BOOT }) {
       damagedShuttles: 0,
       sharedShuttleMethod: 'BY_HOURS',
       enablePersonalShuttles: false,
-      waterTotalCost: 80000,
+      waterTotalCost: 0, // Mặc định 0đ – nhập theo hoá đơn thực tế sau buổi
       waterAllocationMethod: 'EQUAL_DRINKERS',
       otherExpenses: [],
       status: 'Draft',
