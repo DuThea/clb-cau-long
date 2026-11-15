@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Khóa zoom iOS khi chạm vào input + hỗ trợ tai thỏ (safe-area) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Badminton" />
+    <meta name="theme-color" content="#4772FA" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <title>Badminton Manager</title>
+    <style>
+      html, body { margin: 0; background: #F4F6FA; }
+      .boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; font: 600 14px -apple-system, system-ui, sans-serif; color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div class="boot">Đang tải dữ liệu…</div></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

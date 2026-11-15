@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Dark mode điều khiển bằng class .dark (nút Sun/Moon), không theo hệ điều hành */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body {
+  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  background: #F4F6FA;
+}
+html.dark, html.dark body { background: #0F1015; color-scheme: dark; }
+
+/* Ép mọi input/select/textarea >= 16px để iPhone không tự zoom làm lệch frame */
+input, select, textarea { font-size: 16px !important; }
+
+button:disabled { opacity: .5; cursor: not-allowed; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
